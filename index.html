@@ -12,6 +12,10 @@
   #debug.on { display: block; }
   #debug pre { margin: 0; font: inherit; }
   #debug canvas { display: block; margin: 6px 0 0 auto; image-rendering: pixelated; }
+  #debug .controls { display: grid; gap: 4px; margin-top: 6px; pointer-events: auto; }
+  #debug .row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  #debug .row input[type=range] { width: 130px; margin: 0; }
+  #debug .row .val { min-width: 5ch; text-align: right; }
   #hint { position: fixed; bottom: 8px; left: 10px; font-size: 12px; opacity: .6; pointer-events: none; }
 </style>
 </head>

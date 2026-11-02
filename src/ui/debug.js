@@ -1,4 +1,4 @@
-// F3 debug overlay: text panel + frame-time graph. No game logic.
+// F3 debug overlay: text panel + frame-time graph + simple controls. No game logic.
 const HISTORY = 160, GRAPH_W = 240, GRAPH_H = 44, GRAPH_MAX_MS = 40, TEXT_EVERY_MS = 150;
 
 export class DebugOverlay {
@@ -13,7 +13,25 @@ export class DebugOverlay {
     this.graph = document.createElement('canvas');
     this.graph.width = GRAPH_W; this.graph.height = GRAPH_H;
     this.ctx = this.graph.getContext('2d');
-    el.append(this.text, this.graph);
+    this.controls = document.createElement('div');
+    this.controls.className = 'controls';
+    el.append(this.text, this.graph, this.controls);
+  }
+
+  // Adds a labelled range slider. onInput(value) fires continuously while dragging.
+  addSlider({ label, min, max, step, value, format = (v) => v.toFixed(2), onInput }) {
+    const row = document.createElement('label');
+    row.className = 'row';
+    const name = document.createElement('span'); name.textContent = label;
+    const input = document.createElement('input');
+    Object.assign(input, { type: 'range', min, max, step, value });
+    const val = document.createElement('span'); val.className = 'val';
+    const sync = () => { val.textContent = format(+input.value); };
+    input.addEventListener('input', () => { sync(); onInput(+input.value); });
+    sync();
+    row.append(name, input, val);
+    this.controls.append(row);
+    return { set(v) { input.value = v; sync(); } };
   }
 
   toggle() { this.on = !this.on; this.el.classList.toggle('on', this.on); this.sinceText = 1e9; }

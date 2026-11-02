@@ -1,10 +1,16 @@
 // All tunable settings live here.
-export const RENDER_SCALE = 0.5;          // internal resolution multiplier (dither pass builds on this)
+export const RENDER_SCALE = 0.5;          // default internal resolution multiplier (adjustable at runtime via F3 slider)
+export const RENDER_SCALE_MIN = 0.1, RENDER_SCALE_MAX = 1;
 export const FOV = 70;
 export const NEAR = 0.1, FAR = 100;
 export const BG_COLOR = 0x0b0d12;
 export const SHADOW_MAP_SIZE = 1024;
-export const ORBIT = { yaw: 0.8, pitch: 0.5, dist: 4, minDist: 1.5, maxDist: 12, target: [0, 0.5, 0], sens: 0.005 };
+// smoothing: ease rates in 1/sec (higher = snappier, 0 = instant). zoomSens: log-zoom per wheel pixel.
+export const ORBIT = {
+  yaw: 0.8, pitch: 0.5, dist: 4, minDist: 1.5, maxDist: 12, minPitch: -0.1, maxPitch: 1.5,
+  target: [0, 0.5, 0], sens: 0.005, zoomSens: 0.001,
+  smoothing: { rotate: 14, zoom: 10 },
+};
 export const CUBE_SPIN = 0.0005;          // rad per ms
 
 // Point lights: orbit radius/height/speed (rad/s), colour, intensity, flicker amount (0 = steady).

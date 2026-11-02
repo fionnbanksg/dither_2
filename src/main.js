@@ -17,7 +17,7 @@ pipeline.renderer.setAnimationLoop((now) => {
   const dt = now - last; last = now;
   world.update(dt);
   lights.update(now / 1000);
-  orbit.update();
+  orbit.update(dt);
   pipeline.render(world.scene);
   hud.frame(dt);
 });
