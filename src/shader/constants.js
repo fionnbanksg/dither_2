@@ -19,5 +19,7 @@ const bool USE_SUPER = true;
 const float SOFT_SCALE = 0.625;
 // Which light gets a hard (unjittered) shadow. -1 = none, every light is soft.
 const int HARD_SHADOW_LIGHT = -1;
+// Sky-visibility (ambient) rays per light-pass texel, averaged. More = smoother contact shadows, slower. Max 7.
+const int SKY_RAYS = 4;
 
 `;

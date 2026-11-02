@@ -18,9 +18,16 @@ vec3 castLights(vec3 p, vec3 n, out float vis) {
   vec3 E = vec3(0.0);
   vec3 sp = p + n * 0.3;                                    // shadow ray origin
 
-  // open sky: ambient from above (only where the sky can be seen) + one sun / moon shadow ray
-  vec3 sj = vec3(hash13(vec3(gl_FragCoord.xy, 41.0)), hash13(vec3(gl_FragCoord.xy, 43.0)), hash13(vec3(gl_FragCoord.xy, 47.0))) - 0.5;
-  vis = occluded(sp, safeDir(vec3(0.0, 0.9, 0.0) + n * 0.5 + sj * 0.8), 700.0) ? 0.0 : 1.0;
+  // open sky: ambient from above (averaged over SKY_RAYS jittered rays, so vis is 0..1 and the noise is smooth)
+  // + one sun / moon shadow ray
+  float visSum = 0.0;
+  for (int s = 0; s < SKY_RAYS; s++) {
+    float fs = float(s) * 17.0;
+    vec3 sjs = vec3(hash13(vec3(gl_FragCoord.xy, 41.0 + fs)), hash13(vec3(gl_FragCoord.xy, 43.0 + fs)), hash13(vec3(gl_FragCoord.xy, 47.0 + fs))) - 0.5;
+    visSum += occluded(sp, safeDir(vec3(0.0, 0.9, 0.0) + n * 0.5 + sjs * 0.8), 700.0) ? 0.0 : 1.0;
+  }
+  vis = floor(visSum + 0.5) / float(SKY_RAYS);              // quantised to SKY_RAYS+1 levels so it packs into the light texture
+  vec3 sj = vec3(hash13(vec3(gl_FragCoord.xy, 53.0)), hash13(vec3(gl_FragCoord.xy, 59.0)), hash13(vec3(gl_FragCoord.xy, 61.0))) - 0.5;
   float sn = max(dot(n, uCelLightDir), 0.0);
   if (sn > 0.0 && max(uCelLightCol.r, max(uCelLightCol.g, uCelLightCol.b)) > 0.004 &&
       !(vis == 0.0 && uCelLightDir.y > SUN_SKIP_Y) &&
@@ -91,15 +98,21 @@ bool fetchLight(float t, vec3 n, out vec3 E, out float vis) {
   float tol  = 2.0 + 0.08 * t;
   vec3  eSum = vec3(0.0);
   float vSum = 0.0, wSum = 0.0;
-  for (int k = 0; k < 4; k++) {
-    ivec2 o = ivec2(k & 1, k >> 1);
-    float w = ((o.x == 1) ? fr.x : 1.0 - fr.x) * ((o.y == 1) ? fr.y : 1.0 - fr.y);
+  // 4x4 tent filter (was 2x2): averages many single-ray samples, which turns the speckle into a smooth gradient
+  for (int k = 0; k < 16; k++) {
+    ivec2 o = ivec2(k & 3, k >> 2) - 1;                       // offsets -1..2
+    float wx = max(0.0, 1.0 - abs(float(o.x) - fr.x) / 1.75);
+    float wy = max(0.0, 1.0 - abs(float(o.y) - fr.y) / 1.75);
+    float w = wx * wy;
+    if (w <= 0.0) continue;
     vec4  d = texelFetch(uLightTex, clamp(i0 + o, ivec2(0), lim), 0);
     float kk = floor(d.a / 8192.0);
     float tk = d.a - kk * 8192.0;
-    if (floor(kk * 0.5) != code || abs(tk - t) > tol) continue;
+    float kc = floor(kk / 8.0);                               // face code
+    float kv = kk - kc * 8.0;                                 // sky visibility level 0..SKY_RAYS
+    if (kc != code || abs(tk - t) > tol) continue;
     eSum += d.rgb * w;
-    vSum += mod(kk, 2.0) * w;
+    vSum += (kv / float(SKY_RAYS)) * w;
     wSum += w;
   }
   if (wSum < 1e-3) return false;

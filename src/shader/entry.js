@@ -4,7 +4,7 @@
 export default /* glsl */`// ------------------------------------------------------------ main
 #ifdef LIGHT_PASS
 // Light pass: trace the world at (resolution / LIGHT_DIV) and cast the sky / sun / light rays there, once per texel.
-// Output: rgb = sun + point lights (albedo 1, no AO); a = (faceCode * 2 + skyVisible) * 8192 + hitDistance.
+// Output: rgb = sun + point lights (albedo 1, no AO); a = (faceCode * 8 + skyVisLevel) * 8192 + hitDistance.
 // The full-res pass reuses a texel for every pixel that sees the same kind of surface at a similar distance.
 void main() {
   vec2 uv = (gl_FragCoord.xy / uRes) * 2.0 - 1.0;
@@ -13,12 +13,12 @@ void main() {
   vec3 ro = uCamPos;
   vec3 rd = safeDir(uCamFwd + (uCamRight * uv.x + uCamUp * uv.y) * uTanHalf);
 
-  vec4 o = vec4(0.0, 0.0, 0.0, 14.0 * 8192.0);              // face code 7 = nothing to reuse (sky)
+  vec4 o = vec4(0.0, 0.0, 0.0, 56.0 * 8192.0);              // face code 7 = nothing to reuse (sky)
   Hit h = trace(ro, rd, MAX_COARSE, 1e5);
   if (h.hit) {
     float vis;
     vec3 E = castLights(ro + rd * h.t, h.n, vis);
-    o = vec4(E, (faceCode(h.n) * 2.0 + vis) * 8192.0 + min(h.t, 8000.0));
+    o = vec4(E, (faceCode(h.n) * 8.0 + vis * float(SKY_RAYS)) * 8192.0 + min(h.t, 8000.0));
   }
   fragColor = o;
 }
