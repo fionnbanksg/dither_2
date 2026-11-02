@@ -1,36 +1,28 @@
 import * as THREE from 'three';
-import { SHADOW_MAP_SIZE, POINT_LIGHTS } from '../config.js';
+import { POINT_LIGHTS } from '../config.js';
 
-// Sun (shadowed) + dim hemisphere fill. Add torches/flashes here later.
-export function createLights(scene) {
-  scene.add(new THREE.HemisphereLight(0x8899bb, 0x221a14, 0.4));
+// Point lights: orbit + flicker, written into the arrays the shader reads (voxel coordinates, colour * intensity).
+// Add torches / flashes by pushing more entries into POINT_LIGHTS (max 8, the shader's array size).
+const MAX_LIGHTS = 8;
+const hexRgb = (h) => [(h >> 16 & 255) / 255, (h >> 8 & 255) / 255, (h & 255) / 255];
 
-  const sun = new THREE.DirectionalLight(0xfff1d6, 2.5);
-  sun.position.set(3, 5, 2);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
-  Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 15 });
-  scene.add(sun);
-
-  // point lights, each with a small emissive marker so you can see where it is
-  const markerGeo = new THREE.SphereGeometry(0.06, 8, 6);
-  const points = POINT_LIGHTS.map((cfg) => {
-    const light = new THREE.PointLight(cfg.color, cfg.intensity, 0, 2);
-    light.castShadow = cfg.shadow;
-    if (cfg.shadow) { light.shadow.mapSize.set(512, 512); light.shadow.bias = -0.002; }
-    light.add(new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: cfg.color })));
-    scene.add(light);
-    return { cfg, light };
-  });
+export function createLights(world) {
+  if (POINT_LIGHTS.length > MAX_LIGHTS) console.warn(`POINT_LIGHTS has ${POINT_LIGHTS.length} entries; only the first ${MAX_LIGHTS} are used`);
+  const cfgs = POINT_LIGHTS.slice(0, MAX_LIGHTS).map((c) => ({ ...c, rgb: hexRgb(c.color) }));
+  const pos = Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector3());
+  const col = Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector3());
+  const count = { value: cfgs.length };    // used directly as the uLightCount uniform
+  const m = { x: 0, y: 0, z: 0 };          // scratch: position in metres
 
   function update(tSec) {
-    for (const { cfg, light } of points) {
-      const a = cfg.phase + tSec * cfg.speed;
-      light.position.set(Math.cos(a) * cfg.radius, cfg.height, Math.sin(a) * cfg.radius);
-      const flick = cfg.flicker ? 1 + cfg.flicker * (Math.sin(tSec * 23 + cfg.phase) * Math.sin(tSec * 7.3) ) : 1;
-      light.intensity = cfg.intensity * flick;
-    }
+    cfgs.forEach((c, i) => {
+      const a = c.phase + tSec * c.speed;
+      m.x = Math.cos(a) * c.radius; m.y = c.height; m.z = Math.sin(a) * c.radius;
+      world.toVoxel(m, pos[i]);
+      const flick = c.flicker ? 1 + c.flicker * Math.sin(tSec * 23 + c.phase) * Math.sin(tSec * 7.3) : 1;
+      col[i].set(c.rgb[0], c.rgb[1], c.rgb[2]).multiplyScalar(c.intensity * flick);
+    });
   }
 
-  return { sun, update };
+  return { pos, col, count, update };
 }
